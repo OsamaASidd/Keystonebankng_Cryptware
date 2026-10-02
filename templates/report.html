@@ -1,0 +1,464 @@
+{% extends "base.html" %}
+{% block title %}CFO Report — Keystone Bank FIRS{% endblock %}
+{% block page_title %}CFO Summary Report{% endblock %}
+{% block breadcrumb %}/ FIRS e-Invoice Reporting{% endblock %}
+
+{% block content %}
+<!-- Export Button -->
+<div class="d-flex justify-content-end mb-3">
+  <button type="button" class="btn btn-sm text-white" style="background:var(--kb-blue)"
+          data-bs-toggle="modal" data-bs-target="#reportExportModal">
+    <i class="bi bi-file-earmark-excel me-1"></i>Export Full Report to Excel
+  </button>
+</div>
+
+<!-- Report Export Modal -->
+<div class="modal fade" id="reportExportModal" tabindex="-1" aria-labelledby="reportExportModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header border-0 pb-0" style="background:#f8fafc">
+        <div>
+          <h5 class="modal-title fw-bold" id="reportExportModalLabel">
+            <i class="bi bi-file-earmark-excel me-2 text-success"></i>Export Report to Excel
+          </h5>
+          <p class="text-muted mb-0" style="font-size:.82rem">
+            Choose which sheets to include and which columns appear in the invoice detail sheet.
+          </p>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body pt-3">
+
+        <!-- Section 1: Sheets -->
+        <div class="mb-3">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="badge" style="background:#003087;font-size:.7rem">Report Sheets</span>
+            <span class="text-muted" style="font-size:.78rem">Select which sheets to include in the workbook</span>
+          </div>
+          <div class="row g-2">
+            <div class="col-6 col-md-3">
+              <div class="form-check">
+                <input class="form-check-input report-sheet-cb" type="checkbox" id="sh_summary" value="summary" checked>
+                <label class="form-check-label" for="sh_summary" style="font-size:.84rem">Executive Summary</label>
+              </div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="form-check">
+                <input class="form-check-input report-sheet-cb" type="checkbox" id="sh_currency" value="currency" checked>
+                <label class="form-check-label" for="sh_currency" style="font-size:.84rem">Currency Breakdown</label>
+              </div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="form-check">
+                <input class="form-check-input report-sheet-cb" type="checkbox" id="sh_tax" value="tax" checked>
+                <label class="form-check-label" for="sh_tax" style="font-size:.84rem">Tax Analysis</label>
+              </div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="form-check">
+                <input class="form-check-input report-sheet-cb" type="checkbox" id="sh_invoices" value="invoices" checked>
+                <label class="form-check-label" for="sh_invoices" style="font-size:.84rem">All Invoice Records</label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <hr class="my-2">
+
+        <!-- Section: Invoice Date Range -->
+        <div class="mb-3 p-3 rounded" style="background:#f0fdf4;border:1px solid #bbf7d0">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <i class="bi bi-calendar-range text-success"></i>
+            <span class="fw-semibold" style="font-size:.85rem">Invoice Date Range</span>
+            <span class="text-muted ms-1" style="font-size:.75rem">— filters the All Invoice Records sheet by invoice date</span>
+          </div>
+          <div class="row g-2">
+            <div class="col-6">
+              <label class="form-label mb-1" style="font-size:.75rem;font-weight:600;color:#374151">From</label>
+              <input type="date" id="reportExportDateFrom" class="form-control form-control-sm">
+            </div>
+            <div class="col-6">
+              <label class="form-label mb-1" style="font-size:.75rem;font-weight:600;color:#374151">To</label>
+              <input type="date" id="reportExportDateTo" class="form-control form-control-sm">
+            </div>
+          </div>
+          <div class="mt-2 d-flex gap-2">
+            <button type="button" class="btn btn-xs btn-outline-secondary" style="font-size:.72rem;padding:2px 8px" onclick="setReportDatePreset('this_month')">This Month</button>
+            <button type="button" class="btn btn-xs btn-outline-secondary" style="font-size:.72rem;padding:2px 8px" onclick="setReportDatePreset('last_month')">Last Month</button>
+            <button type="button" class="btn btn-xs btn-outline-secondary" style="font-size:.72rem;padding:2px 8px" onclick="setReportDatePreset('this_year')">This Year</button>
+            <button type="button" class="btn btn-xs btn-outline-secondary" style="font-size:.72rem;padding:2px 8px" onclick="setReportDatePreset('clear')">Clear</button>
+          </div>
+        </div>
+
+        <hr class="my-2">
+
+        <!-- Section 2: Invoice detail columns (only relevant when sh_invoices is checked) -->
+        <div id="invoiceColSection" class="mb-2">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="badge bg-secondary" style="font-size:.7rem">Invoice Record Columns</span>
+            <span class="text-muted" style="font-size:.78rem">Columns shown in the All Invoice Records sheet</span>
+          </div>
+          <div class="row g-2" id="reportColCheckboxes"></div>
+          <div class="d-flex gap-2 mt-3 pt-2 border-top">
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="rSelectAll">
+              <i class="bi bi-check2-all me-1"></i>Select All
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="rDefaultCols">
+              <i class="bi bi-arrow-counterclockwise me-1"></i>Reset to Default
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="modal-footer border-0" style="background:#f8fafc">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-success" id="doReportExport">
+          <i class="bi bi-download me-1"></i>Download Excel
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- KPI Cards Row 1 -->
+<div class="row g-3 mb-3">
+  {% set kpis = [
+    ('Total Invoices',    summary.total,          'bi-receipt',           '#3b82f6','#eff6ff'),
+    ('Submitted to FIRS', summary.submitted,       'bi-check-circle-fill', 'var(--kb-blue)','var(--kb-blue-light)'),
+    ('Pending',           summary.pending,         'bi-clock-fill',        '#d97706','#fef9c3'),
+    ('Exceptions',        summary.failed,          'bi-x-circle-fill',     '#dc2626','#fee2e2'),
+  ] %}
+  {% for label, val, icon, color, bg in kpis %}
+  <div class="col-sm-6 col-xl-3">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body d-flex align-items-center gap-3 py-3">
+        <div style="width:48px;height:48px;border-radius:10px;background:{{ bg }};color:{{ color }};display:flex;align-items:center;justify-content:center;font-size:1.3rem">
+          <i class="bi {{ icon }}"></i>
+        </div>
+        <div>
+          <div class="text-muted" style="font-size:.73rem;text-transform:uppercase;letter-spacing:.5px">{{ label }}</div>
+          <div class="fw-bold" style="font-size:1.5rem;line-height:1.2;color:{{ color }}">{{ "{:,}".format(val) }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- KPI Cards Row 2 -->
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body py-3">
+        <div class="text-muted mb-1" style="font-size:.73rem;text-transform:uppercase;letter-spacing:.5px">Success Rate</div>
+        <div class="fw-bold" style="font-size:1.5rem;color:var(--kb-blue)">{{ summary.success_rate }}%</div>
+        <div class="progress mt-2" style="height:6px">
+          <div class="progress-bar" style="width:{{ summary.success_rate }}%;background:var(--kb-blue)"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body py-3">
+        <div class="text-muted mb-1" style="font-size:.73rem;text-transform:uppercase;letter-spacing:.5px">Total VAT Reported</div>
+        <div class="fw-bold" style="font-size:1.3rem;color:var(--kb-blue)">NGN {{ "{:,.2f}".format(total_vat) }}</div>
+        <div class="text-muted" style="font-size:.75rem">7.5% × STANDARD_VAT submitted invoices</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body py-3">
+        <div class="text-muted mb-1" style="font-size:.73rem;text-transform:uppercase;letter-spacing:.5px">Total Submitted Amount</div>
+        <div class="fw-bold" style="font-size:1.2rem;color:var(--kb-blue)">{{ "{:,.2f}".format(summary.total_submitted_amt) }}</div>
+        <div class="text-muted" style="font-size:.75rem">Across all currencies</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body py-3">
+        <div class="text-muted mb-1" style="font-size:.73rem;text-transform:uppercase;letter-spacing:.5px">Environment</div>
+        {% for e in environments %}
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <span class="badge bg-warning text-dark">{{ e.env }}</span>
+          <span class="fw-bold" style="font-size:.9rem">{{ "{:,}".format(e.count) }} invoices</span>
+        </div>
+        {% else %}
+        <div class="text-muted" style="font-size:.85rem">No submissions yet</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Currency + Tax side by side -->
+<div class="row g-3 mb-4">
+
+  <!-- Currency Breakdown -->
+  <div class="col-xl-7">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white fw-semibold border-bottom py-2 d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-currency-exchange me-2" style="color:var(--kb-blue)"></i>Currency Breakdown</span>
+      </div>
+      <div class="card-body p-0">
+        <table class="table mb-0 table-hover align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>Currency</th><th class="text-end">Invoices</th>
+              <th class="text-end">Submitted</th><th class="text-end">Pending</th>
+              <th class="text-end">Failed</th><th class="text-end">Total Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for c in currencies %}
+            <tr>
+              <td><span class="badge" style="background:var(--kb-blue-light);color:var(--kb-blue);font-size:.8rem">{{ c.currency }}</span></td>
+              <td class="text-end fw-semibold">{{ "{:,}".format(c.total) }}</td>
+              <td class="text-end"><span class="text-success fw-semibold">{{ "{:,}".format(c.submitted) }}</span></td>
+              <td class="text-end"><span class="text-warning">{{ "{:,}".format(c.pending) }}</span></td>
+              <td class="text-end"><span class="text-danger">{{ "{:,}".format(c.failed) }}</span></td>
+              <td class="text-end fw-semibold">{{ "{:,.2f}".format(c.total_amount) }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tax Analysis -->
+  <div class="col-xl-5">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white fw-semibold border-bottom py-2">
+        <i class="bi bi-percent me-2" style="color:var(--kb-blue)"></i>VAT / Tax Analysis
+      </div>
+      <div class="card-body p-0">
+        <table class="table mb-0 align-middle">
+          <thead class="table-light">
+            <tr><th>Category</th><th class="text-end">Count</th><th class="text-end">VAT Reported</th></tr>
+          </thead>
+          <tbody>
+            {% for t in tax_rows %}
+            <tr>
+              <td style="font-size:.85rem">{{ t.category }}</td>
+              <td class="text-end fw-semibold">{{ "{:,}".format(t.count) }}</td>
+              <td class="text-end fw-semibold" style="color:var(--kb-blue)">
+                {{ "{:,.2f}".format(t.vat_submitted) if t.vat_submitted else '—' }}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot class="table-light">
+            <tr>
+              <td colspan="2" class="text-end fw-bold">Total VAT Reported to FIRS</td>
+              <td class="text-end fw-bold" style="color:var(--kb-blue);font-size:1rem">NGN {{ "{:,.2f}".format(total_vat) }}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Invoice Types + Top Customers -->
+<div class="row g-3 mb-4">
+
+  <!-- Invoice Type Breakdown -->
+  <div class="col-xl-4">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white fw-semibold border-bottom py-2">
+        <i class="bi bi-file-earmark-text me-2" style="color:var(--kb-blue)"></i>Invoice Type Breakdown
+      </div>
+      <div class="card-body p-0">
+        <table class="table mb-0 align-middle">
+          <thead class="table-light">
+            <tr><th>Type</th><th class="text-end">Count</th><th class="text-end">Submitted</th></tr>
+          </thead>
+          <tbody>
+            {% for t in inv_types %}
+            <tr>
+              <td>
+                <div style="font-size:.85rem;font-weight:600">{{ t.label }}</div>
+                <div class="text-muted" style="font-size:.72rem">Code {{ t.code }}</div>
+              </td>
+              <td class="text-end fw-semibold">{{ "{:,}".format(t.count) }}</td>
+              <td class="text-end"><span class="badge" style="background:#dbeafe;color:#1e40af">{{ "{:,}".format(t.submitted) }}</span></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Top 10 Customers -->
+  <div class="col-xl-8">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white fw-semibold border-bottom py-2">
+        <i class="bi bi-people me-2" style="color:var(--kb-blue)"></i>Top 10 Customers by Submitted Amount
+      </div>
+      <div class="card-body p-0">
+        <table class="table mb-0 table-hover align-middle">
+          <thead class="table-light">
+            <tr><th>#</th><th>Customer</th><th class="text-end">Invoices</th><th class="text-end">Currency</th><th class="text-end">Amount</th></tr>
+          </thead>
+          <tbody>
+            {% for c in top_customers %}
+            <tr>
+              <td class="text-muted" style="font-size:.8rem">{{ loop.index }}</td>
+              <td style="font-size:.85rem;font-weight:600">{{ c.customer }}</td>
+              <td class="text-end">{{ c.invoices }}</td>
+              <td class="text-end"><span class="badge" style="background:var(--kb-blue-light);color:var(--kb-blue);font-size:.75rem">{{ c.currency }}</span></td>
+              <td class="text-end fw-semibold" style="color:var(--kb-blue)">{{ "{:,.2f}".format(c.amount) }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Monthly Trend Chart -->
+{% if monthly %}
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-header bg-white fw-semibold border-bottom py-2">
+    <i class="bi bi-bar-chart-line me-2" style="color:var(--kb-blue)"></i>Monthly Submission Trend
+  </div>
+  <div class="card-body">
+    <canvas id="monthlyChart" height="70"></canvas>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Report export modal ────────────────────────────────────────────────────
+const REPORT_COLS = [
+  ['invoice_no',      'Invoice Number',        true ],
+  ['invoice_date',    'Invoice Date',          true ],
+  ['due_date',        'Due Date',              true ],
+  ['customer_name',   'Customer Name',         true ],
+  ['customer_tin',    'Customer TIN / Tax ID', true ],
+  ['customer_addr',   'Customer Address',      true ],
+  ['narration',       'Details / Narration',   true ],
+  ['amount',          'Amount',                true ],
+  ['subtotal',        'Subtotal',              true ],
+  ['vat',             'VAT @ 7.5%',            true ],
+  ['total',           'Total (inc. VAT)',       false],
+  ['currency',        'Currency',              false],
+  ['account_no',      'Account No.',           false],
+  ['commission_type', 'Commission Type',       false],
+  ['status',          'Status',                true ],
+  ['irn',             'IRN',                   true ],
+  ['environment',     'Environment',           false],
+  ['error',           'Error Message',         false],
+];
+
+(function buildReportColCbs() {
+  const wrap = $('#reportColCheckboxes').empty();
+  REPORT_COLS.forEach(([key, label, def]) => {
+    wrap.append(`
+      <div class="col-6 col-md-4">
+        <div class="form-check">
+          <input class="form-check-input report-col-cb" type="checkbox"
+                 id="rcol_${key}" value="${key}" ${def ? 'checked' : ''}>
+          <label class="form-check-label" for="rcol_${key}" style="font-size:.84rem">${label}</label>
+        </div>
+      </div>`);
+  });
+})();
+
+// Show/hide column section based on "All Invoice Records" sheet checkbox
+$('#sh_invoices').on('change', function() {
+  $('#invoiceColSection').toggle(this.checked);
+});
+
+$('#rSelectAll').on('click',  () => $('.report-col-cb').prop('checked', true));
+$('#rDefaultCols').on('click', () => {
+  REPORT_COLS.forEach(([key,, def]) => $(`#rcol_${key}`).prop('checked', def));
+});
+
+$('#doReportExport').on('click', () => {
+  const sheets = $('.report-sheet-cb:checked').map((_, el) => el.value).get();
+  if (!sheets.length) { alert('Select at least one sheet.'); return; }
+  const cols = $('.report-col-cb:checked').map((_, el) => el.value).get();
+  const params = new URLSearchParams({
+    sheets:    sheets.join(','),
+    cols:      cols.join(','),
+    date_from: document.getElementById('reportExportDateFrom').value,
+    date_to:   document.getElementById('reportExportDateTo').value,
+  });
+  window.location = '/report/export?' + params.toString();
+  bootstrap.Modal.getInstance(document.getElementById('reportExportModal')).hide();
+});
+
+function setReportDatePreset(preset) {
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const fmt = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  let from = '', to = '';
+  if (preset === 'this_month') {
+    from = fmt(new Date(now.getFullYear(), now.getMonth(), 1));
+    to   = fmt(new Date(now.getFullYear(), now.getMonth()+1, 0));
+  } else if (preset === 'last_month') {
+    from = fmt(new Date(now.getFullYear(), now.getMonth()-1, 1));
+    to   = fmt(new Date(now.getFullYear(), now.getMonth(), 0));
+  } else if (preset === 'this_year') {
+    from = `${now.getFullYear()}-01-01`;
+    to   = `${now.getFullYear()}-12-31`;
+  }
+  document.getElementById('reportExportDateFrom').value = from;
+  document.getElementById('reportExportDateTo').value   = to;
+}
+</script>
+
+{% if monthly %}
+<script>
+new Chart(document.getElementById('monthlyChart'), {
+  type: 'bar',
+  data: {
+    labels: {{ monthly | map(attribute='month') | list | tojson }},
+    datasets: [
+      {
+        label: 'Invoices Submitted',
+        data:  {{ monthly | map(attribute='count') | list | tojson }},
+        backgroundColor: 'rgba(0,48,135,.75)',
+        borderColor: '#003087',
+        borderWidth: 1,
+        borderRadius: 4,
+        yAxisID: 'y',
+      },
+      {
+        label: 'Amount',
+        data:  {{ monthly | map(attribute='amount') | list | tojson }},
+        type: 'line',
+        borderColor: '#d97706',
+        backgroundColor: 'rgba(217,119,6,.1)',
+        borderWidth: 2,
+        pointRadius: 3,
+        yAxisID: 'y2',
+        tension: 0.3,
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    interaction: { mode: 'index', intersect: false },
+    plugins: { legend: { position: 'top' } },
+    scales: {
+      y:  { beginAtZero: true, title: { display: true, text: 'Invoice Count' }, grid: { color: '#f0f0f0' }, ticks: { precision: 0 } },
+      y2: { beginAtZero: true, position: 'right', title: { display: true, text: 'Amount' }, grid: { drawOnChartArea: false } },
+      x:  { grid: { display: false } }
+    }
+  }
+});
+</script>
+{% endif %}
+{% endblock %}
