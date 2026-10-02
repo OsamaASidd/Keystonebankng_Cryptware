@@ -1,0 +1,29 @@
+{
+    "database": {
+        "name": "FIRSINVOICEDB",
+        "server": "<SQL_SERVER_IP>",
+        "user": "<DB_USERNAME>",
+        "password": "<DB_PASSWORD>"
+    },
+    "api": {
+        "base_url": "https://<FIRS_API_BASE_URL>",
+        "api_key": "<FIRS_API_KEY>"
+    },
+    "scheduler": {
+        "interval_minutes": 5
+    },
+    "fund_transfer": {
+        "linked_server": "<LINKED_SERVER_IP>",
+        "database": "Transactions"
+    },
+    "logging": {
+        "log_dir": "logs"
+    },
+    "twofa": {
+        "enabled": true,
+        "base_url": "http://<2FA_API_HOST>/KBLOpenAPI/api/",
+        "client_id": "<2FA_CLIENT_ID>",
+        "client_key": "<2FA_CLIENT_KEY>",
+        "secret_key": "<2FA_HMAC_SECRET_KEY>"
+    }
+}
