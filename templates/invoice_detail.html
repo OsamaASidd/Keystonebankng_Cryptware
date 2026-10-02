@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+{% block title %}{{ invoice.trans_ref }} — Keystone Bank FIRS{% endblock %}
+{% block page_title %}Invoice Detail{% endblock %}
+{% block breadcrumb %}/ <a href="/invoices" class="text-muted text-decoration-none">Invoices</a> / {{ invoice.trans_ref }}{% endblock %}
+
+{% block content %}
+<!-- Action Bar -->
+<div class="d-flex gap-2 mb-4 flex-wrap">
+  <a href="/invoices" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>Back
+  </a>
+  {% if invoice.status == 1 %}
+  <a href="/invoices/{{ invoice.trans_ref }}/print" target="_blank" class="btn btn-sm btn-outline-primary">
+    <i class="bi bi-printer me-1"></i>Print Invoice
+  </a>
+  <a href="/invoices/{{ invoice.trans_ref }}/pdf" class="btn btn-sm text-white" style="background:var(--kb-blue)">
+    <i class="bi bi-file-earmark-pdf me-1"></i>Download PDF
+  </a>
+  {% endif %}
+</div>
+
+<div class="row g-3">
+  <!-- Left column -->
+  <div class="col-xl-8">
+
+    <!-- Status Banner -->
+    {% if invoice.status == 1 %}
+    <div class="alert d-flex align-items-center gap-2 mb-3" style="background:#e6f0ff;border:1px solid #003087;border-radius:8px">
+      <i class="bi bi-check-circle-fill fs-5" style="color:#003087"></i>
+      <div>
+        <div class="fw-semibold" style="color:#003087">Successfully Submitted to FIRS</div>
+        <div style="font-size:.8rem;color:#001f5b">IRN: <span class="fw-bold font-monospace">{{ invoice.irn }}</span></div>
+      </div>
+    </div>
+    {% elif invoice.status == 0 %}
+    <div class="alert d-flex align-items-center gap-2 mb-3" style="background:#fee2e2;border:1px solid #dc2626;border-radius:8px">
+      <i class="bi bi-x-circle-fill text-danger fs-5"></i>
+      <div>
+        <div class="fw-semibold text-danger">Submission Failed</div>
+        <div style="font-size:.8rem;color:#991b1b">{{ invoice.error }}</div>
+      </div>
+    </div>
+    {% else %}
+    <div class="alert d-flex align-items-center gap-2 mb-3" style="background:#fef9c3;border:1px solid #d97706;border-radius:8px">
+      <i class="bi bi-clock-fill text-warning fs-5"></i>
+      <div class="fw-semibold" style="color:#854d0e">Pending Submission</div>
+    </div>
+    {% endif %}
+
+    <!-- Invoice Info -->
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header bg-white fw-semibold border-bottom py-2">
+        <i class="bi bi-file-text me-2" style="color:var(--kb-blue)"></i>Invoice Information
+      </div>
+      <div class="card-body">
+        <div class="row g-2">
+          {% for label, value in [
+            ('Transaction Ref', invoice.trans_ref),
+            ('Invoice Type', {381:'Sales Invoice',380:'Credit Note',384:'Debit Note'}.get(invoice.invoice_type, invoice.invoice_type|string)),
+            ('Booking Date', invoice.date),
+            ('Currency', invoice.currency),
+            ('Environment', invoice.environment or '—'),
+            ('Last Updated', invoice.last_updated[:16] if invoice.last_updated else '—'),
+          ] %}
+          <div class="col-sm-6">
+            <div class="text-muted" style="font-size:.73rem;text-transform:uppercase;letter-spacing:.4px">{{ label }}</div>
+            <div class="fw-semibold" style="font-size:.9rem">{{ value }}</div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Customer -->
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header bg-white fw-semibold border-bottom py-2">
+        <i class="bi bi-person me-2" style="color:var(--kb-blue)"></i>Customer Details
+      </div>
+      <div class="card-body">
+        <div class="row g-2">
+          {% for label, value in [
+            ('Name', invoice.customer),
+            ('TIN', invoice.tin or '—'),
+            ('Account No', invoice.account_no),
+            ('Phone', invoice.phone or '—'),
+            ('Email', invoice.email or '—'),
+            ('Address', (invoice.street ~ ' ' ~ invoice.city ~ ' ' ~ invoice.country)|trim),
+          ] %}
+          <div class="col-sm-6">
+            <div class="text-muted" style="font-size:.73rem;text-transform:uppercase;letter-spacing:.4px">{{ label }}</div>
+            <div class="fw-semibold" style="font-size:.9rem">{{ value }}</div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Line Item -->
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold border-bottom py-2">
+        <i class="bi bi-list-check me-2" style="color:var(--kb-blue)"></i>Invoice Line
+      </div>
+      <div class="card-body p-0">
+        <table class="table mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Description</th><th>HSN Code</th><th>Tax Category</th>
+              <th>Tax Rate</th><th class="text-end">Amount (NGN)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>{{ invoice.service_fee_name or invoice.description }}</td>
+              <td>{{ invoice.hsn_code }}</td>
+              <td>{{ invoice.tax_category }}</td>
+              <td>{{ '7.5%' if invoice.tax_category == 'STANDARD_VAT' else '0%' }}</td>
+              <td class="text-end fw-semibold">{{ "{:,.2f}".format(invoice.amount|float) if invoice.amount else '—' }}</td>
+            </tr>
+          </tbody>
+          <tfoot class="table-light">
+            {% set tax_rate = 7.5 if invoice.tax_category == 'STANDARD_VAT' else 0 %}
+            {% set amt = invoice.amount|float if invoice.amount else 0 %}
+            {% set tax = (amt * tax_rate / 100)|round(2) %}
+            <tr>
+              <td colspan="4" class="text-end text-muted">Subtotal</td>
+              <td class="text-end">{{ invoice.currency }} {{ "{:,.2f}".format(amt) }}</td>
+            </tr>
+            <tr>
+              <td colspan="4" class="text-end text-muted">VAT ({{ tax_rate }}%)</td>
+              <td class="text-end">{{ invoice.currency }} {{ "{:,.2f}".format(tax) }}</td>
+            </tr>
+            <tr>
+              <td colspan="4" class="text-end fw-bold">Total</td>
+              <td class="text-end fw-bold" style="color:var(--kb-blue)">{{ invoice.currency }} {{ "{:,.2f}".format(amt + tax) }}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Right column — IRN / QR -->
+  <div class="col-xl-4">
+
+    {% if invoice.irn %}
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-body text-center py-4">
+        <div class="text-muted mb-1" style="font-size:.75rem;text-transform:uppercase;letter-spacing:.5px">Invoice Reference Number</div>
+        <div class="font-monospace fw-bold" style="font-size:.82rem;color:var(--kb-blue);word-break:break-all">{{ invoice.irn }}</div>
+        {% if invoice.qr_code %}
+        <div class="mt-3">
+          <img src="{{ invoice.qr_code }}" alt="QR Code" style="width:160px;height:160px;border:3px solid var(--kb-blue);border-radius:8px;padding:4px">
+          <div class="mt-2 text-muted" style="font-size:.73rem">Scan to verify with FIRS</div>
+        </div>
+        {% endif %}
+        <div class="mt-3">
+          <a href="/invoices/{{ invoice.trans_ref }}/pdf" class="btn btn-sm w-100 text-white" style="background:var(--kb-blue)">
+            <i class="bi bi-file-earmark-pdf me-1"></i>Download PDF
+          </a>
+          <a href="/invoices/{{ invoice.trans_ref }}/print" target="_blank" class="btn btn-sm btn-outline-secondary w-100 mt-1">
+            <i class="bi bi-printer me-1"></i>Print Invoice
+          </a>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if invoice.preprod_irn %}
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-body py-3">
+        <div class="text-muted mb-1" style="font-size:.73rem;text-transform:uppercase;letter-spacing:.4px">Preprod IRN (Archived)</div>
+        <div class="font-monospace" style="font-size:.78rem;color:#6b7280;word-break:break-all">{{ invoice.preprod_irn }}</div>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if invoice.error %}
+    <div class="card border-0 shadow-sm border-danger">
+      <div class="card-body py-3">
+        <div class="text-danger fw-semibold mb-1" style="font-size:.8rem"><i class="bi bi-exclamation-triangle me-1"></i>Exception Detail</div>
+        <div style="font-size:.82rem;color:#991b1b">{{ invoice.error }}</div>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}
