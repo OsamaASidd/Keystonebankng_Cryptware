@@ -1,0 +1,434 @@
+{% extends "base.html" %}
+{% block title %}Invoices — Keystone Bank FIRS{% endblock %}
+{% block page_title %}Invoices{% endblock %}
+{% block breadcrumb %}/ All Records{% endblock %}
+
+{% block content %}
+<!-- Filter Bar -->
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-body py-2">
+    <form id="filterForm" class="row g-2 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label mb-1" style="font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:#6b7280">Search</label>
+        <div class="input-group input-group-sm">
+          <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+          <input type="text" id="searchInput" class="form-control" placeholder="Ref, customer, IRN…">
+        </div>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label mb-1" style="font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:#6b7280">Currency</label>
+        <select id="currencyFilter" class="form-select form-select-sm">
+          <option value="all">All Currencies</option>
+          <option value="NGN">NGN — Nigerian Naira</option>
+          <option value="USD">USD — US Dollar</option>
+          <option value="GBP">GBP — British Pound</option>
+          <option value="EUR">EUR — Euro</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label mb-1" style="font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:#6b7280">Status</label>
+        <select id="statusFilter" class="form-select form-select-sm">
+          <option value="all">All</option>
+          <option value="submitted">Submitted</option>
+          <option value="pending">Pending</option>
+          <option value="failed">Exceptions</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label mb-1" style="font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:#6b7280">Date From</label>
+        <input type="date" id="dateFrom" class="form-control form-control-sm">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label mb-1" style="font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:#6b7280">Date To</label>
+        <input type="date" id="dateTo" class="form-control form-control-sm">
+      </div>
+      <div class="col-md-auto">
+        <button type="button" id="applyBtn" class="btn btn-sm text-white" style="background:var(--kb-blue)">
+          <i class="bi bi-funnel me-1"></i>Apply
+        </button>
+        <button type="button" id="resetBtn" class="btn btn-sm btn-outline-secondary ms-1">Reset</button>
+        <button type="button" id="exportBtn" class="btn btn-sm btn-outline-success ms-1" data-bs-toggle="modal" data-bs-target="#exportModal" title="Export to Excel">
+          <i class="bi bi-file-earmark-excel me-1"></i>Excel
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Status pills -->
+<div class="mb-3 d-flex gap-2 flex-wrap">
+  {% for label, val, icon, cls in [
+    ('All',        'all',       'bi-list-ul',       'secondary'),
+    ('Submitted',  'submitted', 'bi-check-circle',  'success'),
+    ('Pending',    'pending',   'bi-clock',         'warning'),
+    ('Exceptions', 'failed',    'bi-exclamation-triangle', 'danger'),
+  ] %}
+  <button class="btn btn-sm btn-outline-{{ cls }} status-pill" data-status="{{ val }}">
+    <i class="bi {{ icon }} me-1"></i>{{ label }}
+  </button>
+  {% endfor %}
+</div>
+
+<!-- Invoice Table -->
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table id="invoiceTable" class="table table-hover align-middle mb-0" style="width:100%">
+        <thead class="table-light">
+          <tr>
+            <th>Transaction Ref</th>
+            <th>Date</th>
+            <th>Customer</th>
+            <th>Amount</th>
+            <th>Status</th>
+            <th>IRN</th>
+            <th>Exception</th>
+            <th>Env</th>
+            <th>Last Updated</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- NRS Error Detail Modal -->
+<div class="modal fade" id="nrsErrorModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header border-0 pb-0" style="background:#fef2f2">
+        <div>
+          <h5 class="modal-title fw-bold text-danger">
+            <i class="bi bi-exclamation-triangle me-2"></i>NRS Error Detail
+          </h5>
+          <p class="text-muted mb-0" style="font-size:.82rem">Full error response returned by the FIRS NRS portal</p>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body pt-3">
+        <div class="mb-3">
+          <label class="form-label fw-semibold" style="font-size:.8rem;text-transform:uppercase;letter-spacing:.4px;color:#6b7280">Error Message</label>
+          <div id="nrsErrorMsg" class="p-3 rounded" style="background:#fff5f5;border:1px solid #fecaca;font-size:.88rem;color:#991b1b;white-space:pre-wrap;word-break:break-word;max-height:200px;overflow-y:auto"></div>
+        </div>
+        <div id="nrsErrorDetWrap" class="mb-2" style="display:none">
+          <label class="form-label fw-semibold" style="font-size:.8rem;text-transform:uppercase;letter-spacing:.4px;color:#6b7280">Error Detail</label>
+          <div id="nrsErrorDet" class="p-3 rounded" style="background:#f8fafc;border:1px solid #e5e7eb;font-size:.82rem;font-family:monospace;white-space:pre-wrap;word-break:break-word;max-height:240px;overflow-y:auto"></div>
+        </div>
+      </div>
+      <div class="modal-footer border-0">
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Export Column Selector Modal -->
+<div class="modal fade" id="exportModal" tabindex="-1" aria-labelledby="exportModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header border-0 pb-0" style="background:#f8fafc">
+        <div>
+          <h5 class="modal-title fw-bold" id="exportModalLabel">
+            <i class="bi bi-file-earmark-excel me-2 text-success"></i>Export to Excel
+          </h5>
+          <p class="text-muted mb-0" style="font-size:.82rem">
+            Select the columns to include. The export applies your current filters and includes Keystone Bank branding.
+          </p>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body pt-3">
+
+        <!-- Section: Invoice Date Range -->
+        <div class="mb-3 p-3 rounded" style="background:#f0fdf4;border:1px solid #bbf7d0">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <i class="bi bi-calendar-range text-success"></i>
+            <span class="fw-semibold" style="font-size:.85rem">Invoice Date Range</span>
+            <span class="text-muted ms-1" style="font-size:.75rem">— filters exported rows by invoice date</span>
+          </div>
+          <div class="row g-2">
+            <div class="col-6">
+              <label class="form-label mb-1" style="font-size:.75rem;font-weight:600;color:#374151">From</label>
+              <input type="date" id="exportDateFrom" class="form-control form-control-sm">
+            </div>
+            <div class="col-6">
+              <label class="form-label mb-1" style="font-size:.75rem;font-weight:600;color:#374151">To</label>
+              <input type="date" id="exportDateTo" class="form-control form-control-sm">
+            </div>
+          </div>
+          <div class="mt-2 d-flex gap-2">
+            <button type="button" class="btn btn-xs btn-outline-secondary" style="font-size:.72rem;padding:2px 8px" onclick="setExportDatePreset('this_month')">This Month</button>
+            <button type="button" class="btn btn-xs btn-outline-secondary" style="font-size:.72rem;padding:2px 8px" onclick="setExportDatePreset('last_month')">Last Month</button>
+            <button type="button" class="btn btn-xs btn-outline-secondary" style="font-size:.72rem;padding:2px 8px" onclick="setExportDatePreset('this_year')">This Year</button>
+            <button type="button" class="btn btn-xs btn-outline-secondary" style="font-size:.72rem;padding:2px 8px" onclick="setExportDatePreset('clear')">Clear</button>
+          </div>
+        </div>
+
+        <hr class="my-2">
+
+        <!-- Section: e-Invoice Template Fields -->
+        <div class="mb-3">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="badge" style="background:#003087;font-size:.7rem">e-Invoice Template</span>
+            <span class="text-muted" style="font-size:.78rem">Pre-selected — required for FIRS compliance</span>
+          </div>
+          <div class="row g-2" id="colsInvoice"></div>
+        </div>
+        <hr class="my-2">
+        <!-- Section: Additional Fields -->
+        <div class="mb-2">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="badge bg-secondary" style="font-size:.7rem">Additional Fields</span>
+          </div>
+          <div class="row g-2" id="colsExtra"></div>
+        </div>
+
+        <div class="d-flex gap-2 mt-3 pt-2 border-top">
+          <button type="button" class="btn btn-sm btn-outline-secondary" id="selectAllCols">
+            <i class="bi bi-check2-all me-1"></i>Select All
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" id="defaultCols">
+            <i class="bi bi-arrow-counterclockwise me-1"></i>Reset to Default
+          </button>
+        </div>
+      </div>
+
+      <div class="modal-footer border-0" style="background:#f8fafc">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-success" id="doExport">
+          <i class="bi bi-download me-1"></i>Download Excel
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let table;
+
+function postInvoice(transRef, btn) {
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+  fetch(`/invoices/${transRef}/post`, { method: 'POST' })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        btn.closest('tr').querySelector('.badge').outerHTML =
+          '<span class="badge" style="background:#dbeafe;color:#1e40af">Submitted</span>';
+        btn.remove();
+        const toast = document.createElement('div');
+        toast.className = 'position-fixed bottom-0 end-0 p-3';
+        toast.style.zIndex = 9999;
+        toast.innerHTML = `<div class="toast show align-items-center text-white bg-success border-0">
+          <div class="d-flex"><div class="toast-body"><i class="bi bi-check-circle me-2"></i>
+          Posted — IRN: <span class="font-monospace">${data.irn}</span></div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="this.closest('.position-fixed').remove()"></button>
+          </div></div>`;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 6000);
+        table.ajax.reload(null, false);
+      } else {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-send"></i>';
+        alert('Post failed: ' + (data.error || 'Unknown error'));
+      }
+    })
+    .catch(err => {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-send"></i>';
+      alert('Network error: ' + err);
+    });
+}
+
+function initTable() {
+  table = $('#invoiceTable').DataTable({
+    processing: true,
+    serverSide: true,
+    ajax: {
+      url: '/api/invoices',
+      data: function(d) {
+        d.currency  = $('#currencyFilter').val();
+        d.status    = $('#statusFilter').val();
+        d.date_from = $('#dateFrom').val();
+        d.date_to   = $('#dateTo').val();
+        d.search    = { value: $('#searchInput').val() };
+        return d;
+      }
+    },
+    columns: [
+      { data: 0, orderable: false },
+      { data: 1 },
+      { data: 2 },
+      { data: 3 },
+      { data: 4, orderable: false },
+      { data: 5, orderable: false, render: d => d
+          ? `<span style="font-size:.75rem;font-family:monospace">${d}</span>` : '—' },
+      { data: 6, orderable: false, render: d => d || '' },
+      { data: 7, orderable: false, render: d => d
+          ? `<span class="badge bg-secondary">${d}</span>` : '' },
+      { data: 8, orderable: false },
+      { data: 9, orderable: false },
+    ],
+    pageLength: 25,
+    lengthMenu: [10, 25, 50, 100],
+    order: [[1, 'desc']],
+    language: {
+      processing: '<div class="spinner-border spinner-border-sm text-success" role="status"></div>',
+      emptyTable: 'No invoices found.',
+      loadingRecords: 'Loading…',
+    },
+    dom: '<"d-flex justify-content-between align-items-center px-3 py-2"<"d-flex align-items-center gap-2"l><"text-muted"i>>rt<"d-flex justify-content-between align-items-center px-3 py-2"ip>',
+  });
+}
+
+function initTooltips() {
+  document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
+    bootstrap.Tooltip.getOrCreateInstance(el, { trigger: 'hover' });
+  });
+}
+
+$(function() {
+  // Apply status from URL param on page load
+  const _urlStatus = new URLSearchParams(window.location.search).get('status') || 'all';
+  $('#statusFilter').val(_urlStatus);
+  $('.status-pill').removeClass('active').filter(`[data-status="${_urlStatus}"]`).addClass('active');
+
+  initTable();
+
+  $('#invoiceTable').on('draw.dt', initTooltips);
+
+  $('#applyBtn').on('click', () => table.ajax.reload());
+
+  $('#resetBtn').on('click', () => {
+    $('#searchInput').val('');
+    $('#currencyFilter').val('all');
+    $('#statusFilter').val('all');
+    $('.status-pill').removeClass('active').filter('[data-status="all"]').addClass('active');
+    $('#dateFrom, #dateTo').val('');
+    table.ajax.reload();
+  });
+
+  $('#searchInput').on('keypress', e => { if (e.key === 'Enter') table.ajax.reload(); });
+
+  // ── Export column selector ────────────────────────────────────────────────
+  const EXPORT_COLS = [
+    // [key, label, group, defaultOn]
+    ['invoice_no',      'Invoice Number',       'invoice', true ],
+    ['invoice_date',    'Invoice Date',         'invoice', true ],
+    ['due_date',        'Due Date',             'invoice', true ],
+    ['customer_name',   'Customer Name',        'invoice', true ],
+    ['customer_tin',    'Customer TIN / Tax ID','invoice', true ],
+    ['customer_addr',   'Customer Address',     'invoice', true ],
+    ['narration',       'Details / Narration',  'invoice', true ],
+    ['amount',          'Amount',               'invoice', true ],
+    ['subtotal',        'Subtotal',             'invoice', true ],
+    ['vat',             'VAT @ 7.5%',           'invoice', true ],
+    ['total',           'Total (inc. VAT)',      'extra',   false],
+    ['currency',        'Currency',             'extra',   false],
+    ['account_no',      'Account No.',          'extra',   false],
+    ['commission_type', 'Commission Type',      'extra',   false],
+    ['status',          'Status',               'extra',   false],
+    ['irn',             'IRN',                  'extra',   false],
+    ['environment',     'Environment',          'extra',   false],
+    ['error',           'Error Message',        'extra',   false],
+  ];
+
+  function buildColCheckboxes() {
+    const inv   = $('#colsInvoice').empty();
+    const extra = $('#colsExtra').empty();
+    EXPORT_COLS.forEach(([key, label, group, def]) => {
+      const html = `
+        <div class="col-6 col-md-4">
+          <div class="form-check">
+            <input class="form-check-input export-col-cb" type="checkbox"
+                   id="col_${key}" value="${key}" ${def ? 'checked' : ''}>
+            <label class="form-check-label" for="col_${key}" style="font-size:.84rem">${label}</label>
+          </div>
+        </div>`;
+      (group === 'invoice' ? inv : extra).append(html);
+    });
+  }
+  buildColCheckboxes();
+
+  $('#selectAllCols').on('click', () => $('.export-col-cb').prop('checked', true));
+  $('#defaultCols').on('click', () => {
+    EXPORT_COLS.forEach(([key,,,def]) => $(`#col_${key}`).prop('checked', def));
+  });
+
+  // Pre-populate export date range from filter bar when modal opens
+  document.getElementById('exportModal').addEventListener('show.bs.modal', () => {
+    if (!$('#exportDateFrom').val()) $('#exportDateFrom').val($('#dateFrom').val());
+    if (!$('#exportDateTo').val())   $('#exportDateTo').val($('#dateTo').val());
+  });
+
+  $('#doExport').on('click', () => {
+    const selected = $('.export-col-cb:checked').map((_, el) => el.value).get();
+    if (!selected.length) { alert('Please select at least one column.'); return; }
+    const params = new URLSearchParams({
+      search:    $('#searchInput').val(),
+      currency:  $('#currencyFilter').val(),
+      status:    $('#statusFilter').val(),
+      date_from: $('#exportDateFrom').val(),
+      date_to:   $('#exportDateTo').val(),
+      cols:      selected.join(','),
+    });
+    window.location = '/invoices/export?' + params.toString();
+    bootstrap.Modal.getInstance(document.getElementById('exportModal')).hide();
+  });
+
+  $('.status-pill').on('click', function() {
+    const val = $(this).data('status');
+    $('#statusFilter').val(val);
+    $('.status-pill').removeClass('active');
+    $(this).addClass('active');
+    history.replaceState(null, '', val === 'all' ? '/invoices' : `/invoices?status=${val}`);
+    table.ajax.reload();
+  });
+});
+
+function setExportDatePreset(preset) {
+  const now   = new Date();
+  const pad   = n => String(n).padStart(2, '0');
+  const fmt   = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  let from = '', to = '';
+  if (preset === 'this_month') {
+    from = fmt(new Date(now.getFullYear(), now.getMonth(), 1));
+    to   = fmt(new Date(now.getFullYear(), now.getMonth()+1, 0));
+  } else if (preset === 'last_month') {
+    from = fmt(new Date(now.getFullYear(), now.getMonth()-1, 1));
+    to   = fmt(new Date(now.getFullYear(), now.getMonth(), 0));
+  } else if (preset === 'this_year') {
+    from = `${now.getFullYear()}-01-01`;
+    to   = `${now.getFullYear()}-12-31`;
+  }
+  document.getElementById('exportDateFrom').value = from;
+  document.getElementById('exportDateTo').value   = to;
+}
+
+function showNrsError(msg, detail) {
+  document.getElementById('nrsErrorMsg').textContent = msg || '(no message)';
+  const detWrap = document.getElementById('nrsErrorDetWrap');
+  const detEl   = document.getElementById('nrsErrorDet');
+  if (detail) {
+    detEl.textContent = detail;
+    detWrap.style.display = '';
+  } else {
+    detWrap.style.display = 'none';
+  }
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('nrsErrorModal')).show();
+}
+
+// Event delegation — handles buttons injected by DataTables
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('.nrs-err-btn');
+  if (!btn) return;
+  e.preventDefault();
+  showNrsError(btn.dataset.msg, btn.dataset.det);
+});
+</script>
+{% endblock %}
