@@ -1,0 +1,15 @@
+# Alternative requirements file using pymssql instead of pyodbc
+# Use this if you can't install pyodbc on your system
+# Usage: pip install -r requirements-pymssql.txt
+
+# SQL Server Database Driver (alternative to pyodbc)
+pymssql>=2.3.0
+
+# HTTP Requests
+requests>=2.31.0
+
+# Task Scheduling
+apscheduler>=3.10.4
+
+# Environment Variables (optional but recommended)
+python-dotenv>=1.0.1
