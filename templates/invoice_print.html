@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Invoice {{ invoice.trans_ref }} — Keystone Bank</title>
+  <style>
+    *  { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 10.5pt;
+           color: #111; background: #fff; }
+
+    .page { width: 210mm; min-height: 297mm; margin: 0 auto; padding: 14mm 18mm 16mm; }
+
+    /* ── Top-bar (print / close buttons) ─────────────────────────── */
+    .print-actions { text-align: center; padding: 10pt 0; }
+    .print-actions button {
+      margin: 0 4pt; padding: 7pt 22pt; border-radius: 5px; cursor: pointer;
+      font-size: 10pt; font-weight: 600; border: none;
+    }
+    .btn-print     { background: #003087; color: #fff; }
+    .btn-close-btn { background: #f3f4f6; color: #374151; }
+
+    /* ── Header ──────────────────────────────────────────────────── */
+    .header { display: flex; justify-content: space-between; align-items: flex-start;
+              padding-bottom: 14pt; }
+
+    .invoice-title { font-size: 68pt; font-weight: 800; letter-spacing: -2px;
+                     line-height: 1; color: #0d0d0d; }
+
+    .issuer { text-align: right; max-width: 220pt; }
+    .issuer img { height: 36pt; display: block; margin: 0 0 6pt auto; }
+    .issuer-name { font-size: 14pt; font-weight: 700; color: #0d0d0d; }
+    .issuer-addr { font-size: 8.5pt; color: #555; margin-top: 2pt; }
+
+    .issuer-meta { display: flex; gap: 28pt; justify-content: flex-end; margin-top: 10pt; }
+    .issuer-meta-item .lbl { font-size: 7.5pt; font-weight: 700; color: #16a34a;
+                              text-transform: uppercase; letter-spacing: .4px; }
+    .issuer-meta-item .val { font-size: 9pt; font-weight: 600; color: #0d0d0d;
+                              word-break: break-all; max-width: 150pt; }
+
+    /* ── Divider ─────────────────────────────────────────────────── */
+    hr { border: none; border-top: 1.2pt solid #e5e7eb; margin: 0 0 12pt; }
+
+    /* ── Bill-To ─────────────────────────────────────────────────── */
+    .billed-to { font-size: 11.5pt; font-weight: 700; color: #0d0d0d;
+                 text-transform: uppercase; margin-bottom: 10pt; }
+
+    .meta-grid { display: flex; gap: 0; margin-bottom: 14pt; }
+    .meta-col  { flex: 0 0 auto; padding-right: 32pt; }
+    .meta-col .lbl { font-size: 7.5pt; font-weight: 700; color: #16a34a;
+                     text-transform: uppercase; letter-spacing: .4px; margin-bottom: 3pt; }
+    .meta-col .val { font-size: 9.5pt; color: #0d0d0d; line-height: 1.45; }
+    .meta-col.addr { min-width: 120pt; }
+
+    /* ── Items table ─────────────────────────────────────────────── */
+    .items-table { width: 100%; border-collapse: collapse; margin-bottom: 0; }
+    .items-table thead tr { border-bottom: 1.5pt solid #0d0d0d; }
+    .items-table th { padding: 5pt 6pt; font-size: 8.5pt; font-weight: 700;
+                      text-transform: uppercase; letter-spacing: .5px; text-align: left;
+                      color: #0d0d0d; }
+    .items-table th.r, .items-table td.r { text-align: right; }
+    .items-table tbody tr { border-bottom: .7pt solid #e5e7eb; }
+    .items-table td { padding: 8pt 6pt; font-size: 10pt; vertical-align: top; }
+    .items-table td.desc { color: #333; font-size: 9.5pt; line-height: 1.45; }
+
+    /* ── Totals ──────────────────────────────────────────────────── */
+    .totals-wrap { display: flex; justify-content: flex-end; margin-top: 14pt; }
+    .totals { width: 200pt; border-collapse: collapse; }
+    .totals td { padding: 3pt 6pt; font-size: 10pt; }
+    .totals td:first-child { color: #555; }
+    .totals td:last-child  { text-align: right; font-weight: 600; }
+    .totals tr.grand td { border-top: 1.5pt solid #0d0d0d; padding-top: 6pt;
+                          font-size: 11pt; font-weight: 700; }
+
+    /* ── QR + IRN footer ─────────────────────────────────────────── */
+    .qr-section { display: flex; align-items: flex-start; gap: 14pt;
+                  margin-top: 20pt; padding-top: 12pt; border-top: 1pt solid #e5e7eb; }
+    .qr-section img { width: 72pt; height: 72pt; }
+    .qr-section .qr-text .lbl { font-size: 7.5pt; font-weight: 700; color: #16a34a;
+                                 text-transform: uppercase; letter-spacing: .4px; }
+    .qr-section .qr-text .irn-val { font-size: 8.5pt; font-weight: 700; color: #003087;
+                                     font-family: 'Courier New', monospace;
+                                     word-break: break-all; margin-top: 3pt; }
+    .qr-section .qr-text .scan-note { font-size: 8pt; color: #777; margin-top: 4pt; }
+
+    /* ── Page footer ─────────────────────────────────────────────── */
+    .page-footer { margin-top: 20pt; font-size: 7.5pt; color: #aaa; text-align: center;
+                   border-top: .7pt solid #e5e7eb; padding-top: 8pt; }
+
+    /* ── Print ───────────────────────────────────────────────────── */
+    @media print {
+      .print-actions { display: none !important; }
+      body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+      .page { padding: 10mm 14mm; }
+    }
+    @page { size: A4; margin: 0; }
+  </style>
+</head>
+<body>
+
+<div class="print-actions">
+  <button class="btn-print" onclick="window.print()">🖨 Print / Save PDF</button>
+  <button class="btn-close-btn" onclick="window.close()">Close</button>
+</div>
+
+{% set tax_rate = 7.5 if invoice.tax_category == 'STANDARD_VAT' else 0 %}
+{% set amt      = invoice.amount|float if invoice.amount else 0 %}
+{% set tax_amt  = (amt * tax_rate / 100)|round(2) %}
+{% set total    = amt + tax_amt %}
+{% set ccy      = invoice.currency or 'NGN' %}
+{% set sym      = '₦' if ccy == 'NGN' else ccy + ' ' %}
+
+<div class="page">
+
+  <!-- ── Header ─────────────────────────────────────────────────── -->
+  <div class="header">
+    <div class="invoice-title">Invoice</div>
+
+    <div class="issuer">
+      <img src="/assets/logo.png" alt="Keystone Bank">
+      <div class="issuer-name">Keystone Bank Limited</div>
+      <div class="issuer-addr">1 Keystone Crescent, Victoria Island, Lagos</div>
+      <div class="issuer-addr">RC No: 969956 &nbsp;|&nbsp; TIN: 00696744-0001</div>
+      <div class="issuer-addr">www.keystonebankng.com</div>
+
+      <div class="issuer-meta">
+        <div class="issuer-meta-item">
+          <div class="lbl">TIN:</div>
+          <div class="val">00696744-0001</div>
+        </div>
+        {% if invoice.irn %}
+        <div class="issuer-meta-item">
+          <div class="lbl">IRN:</div>
+          <div class="val" style="font-family:'Courier New',monospace;font-size:8pt">{{ invoice.irn }}</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- ── Billed To ──────────────────────────────────────────────── -->
+  <div class="billed-to">Billed To: {{ invoice.customer or '—' }}</div>
+
+  <div class="meta-grid">
+    {% if invoice.street or invoice.city %}
+    <div class="meta-col addr">
+      <div class="lbl">Address:</div>
+      <div class="val">
+        {{ invoice.street or '' }}{% if invoice.street and invoice.city %},<br>{% endif %}
+        {{ invoice.city or '' }}{% if invoice.country and (invoice.street or invoice.city) %}, {{ invoice.country }}{% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="meta-col">
+      <div class="lbl">Invoice No:</div>
+      <div class="val">{{ invoice.trans_ref }}</div>
+    </div>
+
+    <div class="meta-col">
+      <div class="lbl">Issue Date:</div>
+      <div class="val">{{ invoice.date or '—' }}</div>
+    </div>
+
+    <div class="meta-col">
+      <div class="lbl">Due Date:</div>
+      <div class="val">{{ invoice.date or '—' }}</div>
+    </div>
+
+    {% if invoice.tin %}
+    <div class="meta-col">
+      <div class="lbl">Customer TIN:</div>
+      <div class="val">{{ invoice.tin }}</div>
+    </div>
+    {% endif %}
+
+    <div class="meta-col">
+      <div class="lbl">Currency:</div>
+      <div class="val">{{ ccy }}</div>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- ── Line Items ─────────────────────────────────────────────── -->
+  <table class="items-table">
+    <thead>
+      <tr>
+        <th style="width:32pt">Item</th>
+        <th>Description</th>
+        <th class="r" style="width:60pt">Quantity</th>
+        <th class="r" style="width:90pt">Price</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td class="desc">{{ invoice.service_fee_name or invoice.description or '—' }}</td>
+        <td class="r">1</td>
+        <td class="r">{{ sym }}{{ "{:,.2f}".format(amt) }}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ── Totals ─────────────────────────────────────────────────── -->
+  <div class="totals-wrap">
+    <table class="totals">
+      <tr>
+        <td>Subtotal</td>
+        <td>{{ sym }}{{ "{:,.2f}".format(amt) }}</td>
+      </tr>
+      <tr>
+        <td>VAT ({{ tax_rate }}%)</td>
+        <td>{{ sym }}{{ "{:,.2f}".format(tax_amt) }}</td>
+      </tr>
+      <tr class="grand">
+        <td>Total Due</td>
+        <td>{{ sym }}{{ "{:,.2f}".format(total) }}</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- ── QR + IRN ───────────────────────────────────────────────── -->
+  {% if invoice.qr_data_uri or invoice.qr_code %}
+  <div class="qr-section">
+    <img src="{{ invoice.qr_data_uri or invoice.qr_code }}" alt="FIRS QR Code">
+    <div class="qr-text">
+      {% if invoice.irn %}
+      <div class="lbl">Invoice Reference Number (IRN):</div>
+      <div class="irn-val">{{ invoice.irn }}</div>
+      {% endif %}
+      <div class="scan-note">Scan QR code to verify this invoice on the FIRS portal.</div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ── Page footer ────────────────────────────────────────────── -->
+  <div class="page-footer">
+    FIRS-compliant electronic invoice issued by Keystone Bank Limited &nbsp;|&nbsp;
+    Regulated by the Central Bank of Nigeria &nbsp;|&nbsp;
+    Generated {{ now.strftime('%d %b %Y %H:%M') }}
+  </div>
+
+</div>
+</body>
+</html>
